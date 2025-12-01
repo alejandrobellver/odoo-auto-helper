@@ -1,31 +1,54 @@
-# Odoo Auto Helper README
+# Odoo Auto Helper (para SGE-odoo-it-yourself)
 
-Esta extensión de Visual Studio Code ayuda a automatizar tareas repetitivas en el desarrollo de proyectos (especialmente útil para desarrollo en **Odoo**).
+Esta extensión de Visual Studio Code ha sido diseñada específicamente para complementar el flujo de trabajo del repositorio [SGE-odoo-it-yourself](https://github.com/javnitram/SGE-odoo-it-yourself).
 
-## Características
+Su objetivo principal es eliminar las fricciones habituales al desarrollar módulos de Odoo con Docker en entornos Linux, automatizando tareas repetitivas y de sistema.
 
-La extensión trabaja silenciosamente en segundo plano realizando las siguientes acciones:
+## 🚀 Problemas que soluciona
 
-### 1. Gestión de Permisos
-* Detecta la creación de nuevos archivos en el proyecto.
-* Ejecuta automáticamente el script `set_permissions.sh` (ubicado en la raíz del workspace) de forma silenciosa para asegurar que los nuevos ficheros tengan los permisos correctos sin interrumpir tu flujo de trabajo.
+Si estás siguiendo el curso o usando el repositorio `SGE-odoo-it-yourself`, sabrás que:
+1.  Cada vez que creas archivos desde el host, a veces Docker no los lee bien y debes ejecutar `./set_permissions.sh` manualmente.
+2.  Al crear una Vista (XML), debes recordar añadirla al `__manifest__.py`.
+3.  Al crear un Modelo (Python), debes añadirlo al `__init__.py`.
 
-### 2. Automatización de `__manifest__.py`
-* **Nuevos XML:** Al crear un archivo `.xml`, la extensión busca el archivo `__manifest__.py` más cercano y añade la ruta relativa del nuevo archivo a la lista `'data'`.
-* **Renombrado:** Si renombras un archivo `.xml`, la extensión actualiza automáticamente la referencia dentro del `__manifest__.py`.
+**Esta extensión hace todo eso por ti automáticamente.**
 
-### 3. Automatización de `__init__.py`
-* **Nuevos Python:** Al crear un archivo `.py`, se añade automáticamente la línea de importación (`from . import nombre_archivo`) en el `__init__.py` del mismo directorio.
-* Si el `__init__.py` no existe, se crea automáticamente.
+## ✨ Características
 
-## Requisitos
+### 1. Gestión Automática de Permisos (Docker)
+Olvídate de ejecutar el script manualmente.
+* **Qué hace:** Detecta cada vez que creas o renombras un archivo en el proyecto.
+* **Acción:** Ejecuta silenciosamente el script `set_permissions.sh` que ya incluye el repositorio en su raíz.
+* **Resultado:** Tus archivos siempre tendrán los permisos correctos para que el contenedor de Odoo los lea sin errores.
 
-Para que la ejecución de permisos funcione, debe existir un archivo llamado `set_permissions.sh` en la raíz de tu carpeta de trabajo abierta en VS Code.
+### 2. Automatización del Manifest (XML)
+* **Nuevos XML:** Al crear un archivo `.xml`, la extensión busca el `__manifest__.py` de tu módulo y añade automáticamente la ruta del nuevo archivo a la lista `'data'`.
+* **Renombrado:** Si cambias el nombre de un XML, se actualiza la referencia en el manifiesto.
 
-## Configuración
+### 3. Automatización de Imports (Python)
+* **Nuevos Modelos:** Al crear un archivo `.py` dentro de una carpeta, se añade automáticamente la línea `from . import nombre_archivo` en el `__init__.py` de ese directorio.
+* **Creación Inteligente:** Si el `__init__.py` no existe, la extensión lo crea por ti.
 
-No requiere configuración adicional. Se activa automáticamente al abrir el proyecto (`onStartupFinished`).
+## 🛠 Requisitos
+
+Para que la funcionalidad principal funcione, tu proyecto debe cumplir la estructura del repositorio [SGE-odoo-it-yourself](https://github.com/javnitram/SGE-odoo-it-yourself), concretamente:
+
+1.  Debe existir el archivo `set_permissions.sh` en la raíz del área de trabajo.
+2.  Debes estar trabajando en un entorno (como Linux o WSL) donde dicho script sea ejecutable.
+
+## 📦 Instalación
+
+1.  Descarga el archivo `.vsix` de la extensión.
+2.  En VS Code, ve a Extensiones (`Ctrl+Shift+X`).
+3.  Click en los tres puntos `...` > **Install from VSIX...**
+4.  Selecciona el archivo descargado.
+
+## ⚙️ Uso
+
+No requiere configuración. Simplemente:
+1.  Abre la carpeta del repositorio `SGE-odoo-it-yourself` en VS Code.
+2.  Empieza a crear tus modelos y vistas dentro de `extra-addons`.
+3.  Verás cómo los archivos `__manifest__.py` e `__init__.py` se rellenan solos "mágicamente".
 
 ---
-
-**Disfruta programando sin preocuparte por los imports y permisos manuales.**
+**Disclaimer:** Esta es una herramienta de ayuda para estudiantes y desarrolladores que utilizan el stack SGE-odoo.
