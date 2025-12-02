@@ -6,8 +6,9 @@ import * as path from 'path';
 let permissionTimeout: NodeJS.Timeout | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
+    // 1. EVENTO: CREACIÓN
     const createWatcher = vscode.workspace.onDidCreateFiles(async (event) => {
-        triggerPermissionsScript();
+        triggerAction();
         for (const file of event.files) {
             if (shouldIgnore(file.fsPath)) continue;
 
@@ -22,24 +23,28 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    // 2. EVENTO: RENOMBRADO
     const renameWatcher = vscode.workspace.onDidRenameFiles(async (event) => {
-        triggerPermissionsScript();
+        triggerAction();
         for (const file of event.files) {
             if (shouldIgnore(file.newUri.fsPath)) continue;
 
             const oldExt = path.extname(file.oldUri.fsPath);
             const newExt = path.extname(file.newUri.fsPath);
 
+            // Manifest (XML)
             if (oldExt === '.xml') await removeFromManifest(file.oldUri.fsPath);
             if (newExt === '.xml') await addToManifest(file.newUri.fsPath);
             
+            // Init (Python)
             if (oldExt === '.py' && !file.oldUri.fsPath.endsWith('__init__.py')) await removeFromInit(file.oldUri.fsPath);
             if (newExt === '.py' && !file.newUri.fsPath.endsWith('__init__.py')) await addToInit(file.newUri.fsPath);
         }
     });
 
+    // 3. EVENTO: BORRADO
     const deleteWatcher = vscode.workspace.onDidDeleteFiles(async (event) => {
-        triggerPermissionsScript();
+        triggerAction();
         for (const file of event.files) {
             if (shouldIgnore(file.fsPath)) continue;
 
@@ -59,16 +64,18 @@ function shouldIgnore(filePath: string): boolean {
     return filePath.includes('node_modules') || filePath.includes('.git') || filePath.includes('__pycache__');
 }
 
-function triggerPermissionsScript() {
+// Lógica de espera (Debounce) para no saturar Docker
+function triggerAction() {
     if (permissionTimeout) {
         clearTimeout(permissionTimeout);
     }
+    // Esperamos 2 segundos de inactividad antes de ejecutar script + restart
     permissionTimeout = setTimeout(() => {
-        runPermissionsScript();
-    }, 1000);
+        runPermissionsAndRestart();
+    }, 2000);
 }
 
-function runPermissionsScript() {
+function runPermissionsAndRestart() {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) return;
 
@@ -76,11 +83,37 @@ function runPermissionsScript() {
     const scriptPath = path.join(rootPath, 'set_permissions.sh');
 
     if (fs.existsSync(scriptPath)) {
-        cp.exec(`sh "${scriptPath}"`, { cwd: rootPath }, (err) => {
-            if (err) console.error(err);
-        });
+        try {
+            // 1. Aseguramos que el script sea ejecutable (chmod +x)
+            fs.chmodSync(scriptPath, '755');
+
+            // 2. Construimos el comando exacto.
+            // Usamos "./set_permissions.sh" explícitamente.
+            // El '&&' asegura que Odoo NO se reinicie si los permisos fallan.
+            const command = `./set_permissions.sh && docker compose restart odoo`;
+
+            console.log('Ejecutando mantenimiento Odoo...');
+            
+            // Ejecutamos en una shell bash real para evitar problemas de entorno
+            cp.exec(command, { cwd: rootPath, shell: '/bin/bash' }, (err, stdout, stderr) => {
+                if (err) {
+                    console.error('Error crítico:', stderr);
+                    vscode.window.showErrorMessage('Error al ejecutar permisos o reiniciar Odoo. Revisa Developer Tools.');
+                } else {
+                    console.log(stdout);
+                    vscode.window.setStatusBarMessage('$(check) Odoo: Permisos OK y Reiniciado', 4000);
+                }
+            });
+
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Error de sistema: ${error.message}`);
+        }
+    } else {
+        vscode.window.showWarningMessage('No se encontró set_permissions.sh en la raíz del proyecto.');
     }
 }
+
+// --- MANIFEST UTILS ---
 
 async function addToManifest(xmlPath: string) {
     const manifestPath = findNearestFile(path.dirname(xmlPath), '__manifest__.py');
@@ -116,6 +149,7 @@ async function removeFromManifest(xmlPath: string) {
     const doc = await vscode.workspace.openTextDocument(manifestPath);
     const text = doc.getText();
 
+    // Filtramos líneas que contengan el archivo
     const lines = text.split('\n');
     const newLines = lines.filter(line => !line.includes(`'${relativePath}'`) && !line.includes(`"${relativePath}"`));
 
@@ -127,6 +161,8 @@ async function removeFromManifest(xmlPath: string) {
         await doc.save();
     }
 }
+
+// --- INIT UTILS ---
 
 async function addToInit(pyPath: string) {
     const dir = path.dirname(pyPath);
@@ -164,6 +200,7 @@ async function removeFromInit(pyPath: string) {
     const text = doc.getText();
 
     const lines = text.split('\n');
+    // Filtramos la línea exacta del import
     const newLines = lines.filter(line => !line.trim().startsWith(importLine));
 
     if (lines.length !== newLines.length) {
