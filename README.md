@@ -1,54 +1,52 @@
 # Odoo Auto Helper (para SGE-odoo-it-yourself)
 
-Esta extensión de Visual Studio Code ha sido diseñada específicamente para complementar el flujo de trabajo del repositorio [SGE-odoo-it-yourself](https://github.com/javnitram/SGE-odoo-it-yourself).
+Esta extensión de Visual Studio Code es el compañero esencial para el repositorio [SGE-odoo-it-yourself](https://github.com/javnitram/SGE-odoo-it-yourself).
 
-Su objetivo principal es eliminar las fricciones habituales al desarrollar módulos de Odoo con Docker en entornos Linux, automatizando tareas repetitivas y de sistema.
+Su misión es automatizar el mantenimiento del contenedor y la gestión de archivos de Odoo, solucionando los problemas de permisos y el **Error 500** habitual al desarrollar "en caliente".
 
 ## 🚀 Problemas que soluciona
 
-Si estás siguiendo el curso o usando el repositorio `SGE-odoo-it-yourself`, sabrás que:
-1.  Cada vez que creas archivos desde el host, a veces Docker no los lee bien y debes ejecutar `./set_permissions.sh` manualmente.
-2.  Al crear una Vista (XML), debes recordar añadirla al `__manifest__.py`.
-3.  Al crear un Modelo (Python), debes añadirlo al `__init__.py`.
+1.  **Error 500 / Internal Server Error:** Odoo necesita reiniciarse para detectar correctamente cambios en permisos o nuevos archivos Python compilados. Hacerlo a mano es lento.
+2.  **Permisos de Docker:** Los archivos creados desde el host (VS Code) a veces son ilegibles para el contenedor.
+3.  **Boilerplate repetitivo:** Olvidar añadir una vista al `__manifest__.py` o un modelo al `__init__.py` es la causa #1 de errores "View not found".
 
-**Esta extensión hace todo eso por ti automáticamente.**
+## ✨ Características Principales
 
-## ✨ Características
+### 1. Gestión Inteligente del Servidor (Docker + Permisos)
+La extensión vigila tus movimientos de archivos y actúa automáticamente:
 
-### 1. Gestión Automática de Permisos (Docker)
-Olvídate de ejecutar el script manualmente.
-* **Qué hace:** Detecta cada vez que creas o renombras un archivo en el proyecto.
-* **Acción:** Ejecuta silenciosamente el script `set_permissions.sh` que ya incluye el repositorio en su raíz.
-* **Resultado:** Tus archivos siempre tendrán los permisos correctos para que el contenedor de Odoo los lea sin errores.
+* **Espera Inteligente (Debounce):** Al crear, borrar o renombrar archivos, la extensión espera **2 segundos** de inactividad. Esto te permite pegar o mover múltiples archivos sin saturar el sistema.
+* **Ejecución Nativa:** Ejecuta `./set_permissions.sh` usando una shell `bash` real para asegurar que los permisos se apliquen correctamente.
+* **Auto-Reinicio de Odoo:** Una vez aplicados los permisos, ejecuta automáticamente `docker compose restart odoo`. **Esto previene el error 500**, asegurando que Odoo cargue los nuevos archivos correctamente.
 
 ### 2. Automatización del Manifest (XML)
-* **Nuevos XML:** Al crear un archivo `.xml`, la extensión busca el `__manifest__.py` de tu módulo y añade automáticamente la ruta del nuevo archivo a la lista `'data'`.
-* **Renombrado:** Si cambias el nombre de un XML, se actualiza la referencia en el manifiesto.
+* **Creación:** Al crear un `.xml`, busca el `__manifest__.py` más cercano y lo añade a la lista `'data'`.
+* **Borrado:** Si eliminas un `.xml`, la extensión limpia la línea correspondiente en el `__manifest__.py`.
+* **Renombrado:** Actualiza la referencia automáticamente.
 
 ### 3. Automatización de Imports (Python)
-* **Nuevos Modelos:** Al crear un archivo `.py` dentro de una carpeta, se añade automáticamente la línea `from . import nombre_archivo` en el `__init__.py` de ese directorio.
-* **Creación Inteligente:** Si el `__init__.py` no existe, la extensión lo crea por ti.
+* **Creación:** Al crear un `.py`, añade `from . import nombre_archivo` en el `__init__.py` local (y lo crea si falta).
+* **Borrado:** Si eliminas un `.py`, borra su línea de importación en el `__init__.py`.
+* **Renombrado:** Quita el import viejo y añade el nuevo.
 
-## 🛠 Requisitos
+## 🛠 Requisitos Técnicos
 
-Para que la funcionalidad principal funcione, tu proyecto debe cumplir la estructura del repositorio [SGE-odoo-it-yourself](https://github.com/javnitram/SGE-odoo-it-yourself), concretamente:
+Para que la magia funcione, tu entorno debe cumplir:
 
-1.  Debe existir el archivo `set_permissions.sh` en la raíz del área de trabajo.
-2.  Debes estar trabajando en un entorno (como Linux o WSL) donde dicho script sea ejecutable.
+1.  **Estructura del Proyecto:** Debe existir `set_permissions.sh` y `docker-compose.yml` en la raíz.
+2.  **Nombre del Servicio:** El servicio en el docker-compose debe llamarse `odoo` (el estándar del repo de clase).
+3.  **Entorno:** Sistema operativo Linux, macOS o Windows con WSL2 (necesario para ejecutar scripts bash y docker).
 
 ## 📦 Instalación
 
-1.  Descarga el archivo `.vsix` de la extensión.
-2.  En VS Code, ve a Extensiones (`Ctrl+Shift+X`).
-3.  Click en los tres puntos `...` > **Install from VSIX...**
-4.  Selecciona el archivo descargado.
+1.  Descarga el archivo `.vsix` del último Release.
+2.  En VS Code: Panel de Extensiones (`Ctrl+Shift+X`) > Menú `...` > **Install from VSIX...**
+3.  Selecciona el archivo descargado.
 
 ## ⚙️ Uso
 
-No requiere configuración. Simplemente:
-1.  Abre la carpeta del repositorio `SGE-odoo-it-yourself` en VS Code.
-2.  Empieza a crear tus modelos y vistas dentro de `extra-addons`.
-3.  Verás cómo los archivos `__manifest__.py` e `__init__.py` se rellenan solos "mágicamente".
+Simplemente trabaja en tu proyecto.
+* Cuando veas en la barra de estado de VS Code el mensaje: **"$(check) Odoo: Permisos OK y Reiniciado"**, sabrás que tu entorno está listo para probar los cambios.
 
 ---
-**Disclaimer:** Esta es una herramienta de ayuda para estudiantes y desarrolladores que utilizan el stack SGE-odoo.
+**Nota:** Dado que la extensión reinicia el contenedor de Odoo tras los cambios de estructura, es normal que la web de Odoo tarde unos segundos en responder inmediatamente después de crear un archivo nuevo.
