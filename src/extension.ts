@@ -6,7 +6,6 @@ import * as path from 'path';
 let permissionTimeout: NodeJS.Timeout | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-    // 1. EVENTO: CREACIÓN
     const createWatcher = vscode.workspace.onDidCreateFiles(async (event) => {
         triggerAction();
         for (const file of event.files) {
@@ -23,7 +22,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    // 2. EVENTO: RENOMBRADO
     const renameWatcher = vscode.workspace.onDidRenameFiles(async (event) => {
         triggerAction();
         for (const file of event.files) {
@@ -32,17 +30,14 @@ export function activate(context: vscode.ExtensionContext) {
             const oldExt = path.extname(file.oldUri.fsPath);
             const newExt = path.extname(file.newUri.fsPath);
 
-            // Manifest (XML)
             if (oldExt === '.xml') {await removeFromManifest(file.oldUri.fsPath);}
             if (newExt === '.xml') {await addToManifest(file.newUri.fsPath);}
             
-            // Init (Python)
             if (oldExt === '.py' && !file.oldUri.fsPath.endsWith('__init__.py')) {await removeFromInit(file.oldUri.fsPath);}
             if (newExt === '.py' && !file.newUri.fsPath.endsWith('__init__.py')) {await addToInit(file.newUri.fsPath);}
         }
     });
 
-    // 3. EVENTO: BORRADO
     const deleteWatcher = vscode.workspace.onDidDeleteFiles(async (event) => {
         triggerAction();
         for (const file of event.files) {
@@ -64,12 +59,10 @@ function shouldIgnore(filePath: string): boolean {
     return filePath.includes('node_modules') || filePath.includes('.git') || filePath.includes('__pycache__');
 }
 
-// Lógica de espera (Debounce)
 function triggerAction() {
     if (permissionTimeout) {
         clearTimeout(permissionTimeout);
     }
-    // 2 segundos de espera
     permissionTimeout = setTimeout(() => {
         runPermissionsAndRestart();
     }, 2000);
@@ -81,8 +74,6 @@ function runPermissionsAndRestart() {
 
     const rootPath = workspaceFolders[0].uri.fsPath;
     const scriptPath = path.join(rootPath, 'set_permissions.sh');
-
-    // MODIFICADO: Si no existe, no hacemos nada ni mostramos error visual.
     if (fs.existsSync(scriptPath)) {
         try {
             fs.chmodSync(scriptPath, '755');
@@ -93,7 +84,6 @@ function runPermissionsAndRestart() {
             cp.exec(command, { cwd: rootPath, shell: '/bin/bash' }, (err, stdout, stderr) => {
                 if (err) {
                     console.error('Error crítico:', stderr);
-                    // Solo mostramos error si falla la ejecución del script, no si falta el archivo
                     vscode.window.showErrorMessage('Error al ejecutar permisos. Revisa la consola.');
                 } else {
                     console.log(stdout);
@@ -105,10 +95,7 @@ function runPermissionsAndRestart() {
             vscode.window.showErrorMessage(`Error de sistema: ${error.message}`);
         }
     } 
-    // ELSE eliminado: No notificamos si no encuentra el script.
 }
-
-// --- MANIFEST UTILS ---
 
 async function addToManifest(xmlPath: string) {
     const manifestPath = findNearestFile(path.dirname(xmlPath), '__manifest__.py');
@@ -156,13 +143,11 @@ async function removeFromManifest(xmlPath: string) {
     }
 }
 
-// --- INIT UTILS ---
 
 async function addToInit(pyPath: string) {
     const dir = path.dirname(pyPath);
     const initPath = path.join(dir, '__init__.py');
     
-    // MODIFICADO: Si no existe el __init__.py, abortamos. NO lo creamos.
     if (!fs.existsSync(initPath)) {return;}
 
     const moduleName = path.basename(pyPath, '.py');
