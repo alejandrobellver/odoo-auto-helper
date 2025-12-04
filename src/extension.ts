@@ -82,6 +82,7 @@ function runPermissionsAndRestart() {
     const rootPath = workspaceFolders[0].uri.fsPath;
     const scriptPath = path.join(rootPath, 'set_permissions.sh');
 
+    // MODIFICADO: Si no existe, no hacemos nada ni mostramos error visual.
     if (fs.existsSync(scriptPath)) {
         try {
             fs.chmodSync(scriptPath, '755');
@@ -92,6 +93,7 @@ function runPermissionsAndRestart() {
             cp.exec(command, { cwd: rootPath, shell: '/bin/bash' }, (err, stdout, stderr) => {
                 if (err) {
                     console.error('Error crítico:', stderr);
+                    // Solo mostramos error si falla la ejecución del script, no si falta el archivo
                     vscode.window.showErrorMessage('Error al ejecutar permisos. Revisa la consola.');
                 } else {
                     console.log(stdout);
@@ -103,7 +105,10 @@ function runPermissionsAndRestart() {
             vscode.window.showErrorMessage(`Error de sistema: ${error.message}`);
         }
     } 
+    // ELSE eliminado: No notificamos si no encuentra el script.
 }
+
+// --- MANIFEST UTILS ---
 
 async function addToManifest(xmlPath: string) {
     const manifestPath = findNearestFile(path.dirname(xmlPath), '__manifest__.py');
@@ -151,10 +156,13 @@ async function removeFromManifest(xmlPath: string) {
     }
 }
 
+// --- INIT UTILS ---
+
 async function addToInit(pyPath: string) {
     const dir = path.dirname(pyPath);
     const initPath = path.join(dir, '__init__.py');
-
+    
+    // MODIFICADO: Si no existe el __init__.py, abortamos. NO lo creamos.
     if (!fs.existsSync(initPath)) {return;}
 
     const moduleName = path.basename(pyPath, '.py');
